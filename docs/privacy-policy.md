@@ -1,3 +1,8 @@
+---
+layout: default
+title: Privacy Policy - Swipe to Close
+---
+
 # Swipe to Close (for macOS) - プライバシーポリシー
 
 最終更新日: 2026年5月4日
