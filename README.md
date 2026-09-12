@@ -1,37 +1,66 @@
 # Swipe to Close (for macOS)
 
-A Chrome extension that closes a tab when you swipe back past the beginning of its history — replicating the behavior found in the Dia browser.
+Close a newly opened Chrome tab with a two-finger **back swipe**, without clicking the page first. Open a link with ⌘-click, a middle click, the context menu, `target="_blank"`, or `window.open()`, then swipe back when you are done reading.
 
 ## How it works
 
-When you open a page in a new tab (or navigate directly to a URL), the extension places a hidden sentinel at the start of the tab's history. If you swipe left with two fingers on a trackpad, press the back button, or use any other back gesture that would go past where you started, the tab closes automatically.
+The extension remembers the starting history entry of each new tab. At that entry, it recognizes a backward horizontal trackpad gesture and closes that tab. If you navigate to another page or site, Chrome's normal back navigation takes you through the existing history. Once you return to the starting entry, another back swipe closes the tab.
 
-Normal back navigation within a tab (e.g. going back through pages you visited) is unaffected.
+Version 1.1 does **not** add history entries or replace the page's `history.state`. It keeps its bookkeeping in extension session storage, independently of the page and its opener. The browser's Back button and keyboard shortcuts retain their normal behavior; they do not trigger the extension's close action.
 
-## What it does not work on
+To reduce accidental closes, vertical scrolling, pinch zoom, modifier-key scrolling, gestures inside horizontal scroll areas, and reversals before recognition are excluded. The recognizer can complete when a swipe starts decelerating, so it does not wait for the full momentum tail. After a close or tab switch, continuing momentum is ignored.
 
-- `chrome://` pages (browser restriction — extensions cannot inject scripts there)
-- Chrome Web Store pages (`https://chrome.google.com/webstore/...`)
-- Any page opened by clicking a link in another tab (those tabs have prior history and the extension will not interfere)
+## Requirements and limitations
 
-## Known limitations
+- macOS with a trackpad; use the same direction as Chrome's normal back gesture. The implementation recognizes negative horizontal pixel deltas, verified with the test machine's back swipe.
+- Chrome 106 or later is required by the APIs. Automated integration checks were run on Chrome 152; minimum-version support has not been separately tested.
+- Only ordinary HTTP/HTTPS pages are supported. `chrome://` pages, Chrome Web Store pages, built-in viewers, local files, and pages without content-script access are not supported.
+- Gestures over embedded frames (`iframe`) are not handled. Move the pointer over the main page.
+- A horizontal scroll area keeps its gesture even when already at its edge. Range sliders, canvases, and videos are also excluded.
+- Wheel events do not identify fingers or expose macOS's native swipe-completion event. Some pixel-based horizontal mouse input can look like a trackpad swipe. Reversal cancels only before the extension commits the close; a completed close cannot be cancelled by reversing afterward.
+- Tabs already open when the extension is installed/reloaded, and restored or prerendered tabs whose starting entry cannot be established, are left alone. Open a fresh link to use the extension after reloading it.
+- A brief guard after closing a tab prevents the same momentum from closing the next tab. Allow the current gesture to finish before closing another tab.
 
-- If a page was opened with existing history (e.g. middle-click from a page that already had history), the extension does not activate. It only fires when `history.length === 1` at the time the page first loads.
-- The extension does not track cross-page navigation within a session. If you navigate through several pages and use back to return to the first one, a final back swipe will close the tab as intended — but only if the tab was originally opened fresh.
+## Installation or update
 
-## Installation
-
-1. Clone or download this repository.
+1. Download/extract this repository or the release ZIP.
 2. Open `chrome://extensions/` in Chrome.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the `swipe-to-close/` folder.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the extension folder. For an existing unpacked installation, click its **Reload** button after updating the files.
+5. Open a **new** tab from a link and test a back swipe without clicking inside that page.
 
-## Build a distributable zip
+## Development and tests
+
+The extension itself has no runtime dependencies and requires no build step. Node.js 20 or later is used for tests and packaging.
 
 ```bash
-cd swipe-to-close
-zip -r ../swipe-to-close-v1.0.0.zip . -x "*.DS_Store" -x ".git/*"
+npm ci
+npm test
+npx playwright install chromium
+npm run test:browser
 ```
+
+The browser harness uses the DevTools extension-loading API in a disposable profile. To test the installed macOS Chrome instead:
+
+```bash
+CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm run test:browser
+```
+
+For physical trackpad checks with the real extension in a separate visible Chrome profile:
+
+```bash
+node tools/manual-check.cjs
+```
+
+The initial diagnostic prototype is available with `npm run probe`. Diagnostic pages and logs are local and are not included in the distributable extension. See [the verification record](docs/verification.md) for test coverage and manual results.
+
+## Build a distributable ZIP
+
+```bash
+npm run package
+```
+
+This creates `dist/swipe-to-close-v1.1.0.zip` from an explicit list of runtime files and icons. Test tools, logs, dependencies, and Git metadata are excluded. The packaging script requires the `zip` command, included with macOS.
 
 ## License
 

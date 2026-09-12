@@ -1,0 +1,13 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const {execFileSync}=require('node:child_process');
+const root=path.resolve(__dirname,'..');
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.json'),'utf8'));
+const files=['manifest.json','background.js','tab-manager.js','gesture.js','content.js','icons','LICENSE'];
+for(const file of files)fs.accessSync(path.join(root,file));
+if(!/^\d+(\.\d+){0,3}$/.test(manifest.version))throw Error('Invalid extension version');
+const directory=path.join(root,'dist');fs.mkdirSync(directory,{recursive:true});
+const target=path.join(directory,`swipe-to-close-v${manifest.version}.zip`);
+fs.rmSync(target,{force:true});
+execFileSync('zip',['-q','-r',target,...files,'-x','*/.DS_Store'],{cwd:root});
+console.log(target);
